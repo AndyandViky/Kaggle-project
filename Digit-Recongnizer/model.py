@@ -90,6 +90,9 @@ class DigitData(Dataset):
         else:
             self.image, self.label = self.datas[train_length:, 1:], self.datas[train_length:, 0]
 
+        # free some memory space
+        del self.datas
+
     def __getitem__(self, index):
 
         img, target = self.image.data[index], int(self.label.data[index])
@@ -137,30 +140,30 @@ class Classifier_CNN(nn.Module):
         self.latent_dim = latent_dim
         self.input_size = input_size
 
-        self.cshape = (128, 7, 7)
+        self.cshape = (128, 6, 6)
         self.iels = int(np.prod(self.cshape))
         self.lshape = (self.iels,)
         self.vervose = verbose
 
         self.model = nn.Sequential(
-            nn.Conv2d(1, 64, kernel_size=4, stride=2, padding=1),
+            nn.Conv2d(1, 64, kernel_size=5, stride=2, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(True),
 
-            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
+            nn.Conv2d(64, 128, kernel_size=5, stride=2, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(True),
         )
 
-        res_block = []
-        for i in range(6):
-            res_block += [
-                ResNet_Block(128)
-            ]
-        self.model = nn.Sequential(
-            self.model,
-            *res_block
-        )
+        # res_block = []
+        # for i in range(6):
+        #     res_block += [
+        #         ResNet_Block(128)
+        #     ]
+        # self.model = nn.Sequential(
+        #     self.model,
+        #     *res_block
+        # )
 
         self.model = nn.Sequential(
             self.model,
@@ -246,7 +249,7 @@ class Trainer:
                 data, target = data.to(device), target.to(device)
 
                 # from torchvision.utils import save_image
-                # save_image(data[:25], './test.png', nrow=5, normalize=False)
+                # save_image(data[:25], './test.png', nrow=5, normalize=True)
 
                 clf.train()
                 clf.zero_grad()
