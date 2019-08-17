@@ -109,6 +109,25 @@ class DigitData(Dataset):
         return len(self.image)
 
 
+class ResNet_Block(nn.Module):
+
+    def __init__(self, dim):
+        super(ResNet_Block, self).__init__()
+
+        self.model = nn.Sequential(
+            nn.Conv2d(dim, dim, kernel_size=3, padding=1, stride=1),
+            nn.BatchNorm2d(dim),
+            nn.ReLU(True),
+
+            nn.Conv2d(dim, dim, kernel_size=3, padding=1, stride=1),
+            nn.BatchNorm2d(dim)
+        )
+
+    def forward(self, x):
+
+        return x + self.model(x)
+
+
 class Classifier_CNN(nn.Module):
 
     def __init__(self, feature_dim=784, latent_dim=10, input_size=(1, 28, 28), verbose=False):
@@ -131,7 +150,20 @@ class Classifier_CNN(nn.Module):
             nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(True),
+        )
 
+        res_block = []
+        for i in range(6):
+            res_block += [
+                ResNet_Block(128)
+            ]
+        self.model = nn.Sequential(
+            self.model,
+            *res_block
+        )
+
+        self.model = nn.Sequential(
+            self.model,
             Reshape(self.lshape),
 
             nn.Linear(self.iels, 1024),
@@ -260,15 +292,16 @@ class Trainer:
             logger.close()
 
         # predict
-        predict_data = csv2tensor(pd.read_csv(test_data_path))
-        predict_data = predict_data.view(-1, 1, 28, 28)
-        predict_data = torch.as_tensor(predict_data, dtype=torch.float32, device=device)
-        predict_result = torch.argmax(clf(predict_data), dim=1)
+        with torch.no_grad():
+            predict_data = csv2tensor(pd.read_csv(test_data_path))
+            predict_data = predict_data.view(-1, 1, 28, 28)
+            predict_data = torch.as_tensor(predict_data, dtype=torch.float32, device=device)
+            predict_result = torch.argmax(clf(predict_data), dim=1)
 
-        predict_result = predict_result.data.cpu()
-        image_id = [i for i in range(1, len(predict_result) + 1)]
-        predict_result = pd.DataFrame({'ImageId': image_id, 'Label': predict_result})
-        predict_result.to_csv('predict.csv', index=False)
+            predict_result = predict_result.data.cpu()
+            image_id = [i for i in range(1, len(predict_result) + 1)]
+            predict_result = pd.DataFrame({'ImageId': image_id, 'Label': predict_result})
+            predict_result.to_csv('predict.csv', index=False)
 
         # save model
         torch.save(clf.state_dict(), os.path.join(Model_DIR, 'cls.pkl'))
@@ -285,7 +318,7 @@ if __name__ == "__main__":
     input_size = (1, 28, 28)
     betas = (0.5, 0.99)
     decay = 2.5 * 1e-5
-    epochs = 20
+    epochs = 40
 
     trainer = Trainer(batch_size=batch_size,
                       test_batch_size=test_batch_size,
