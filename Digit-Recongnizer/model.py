@@ -146,13 +146,15 @@ class Classifier_CNN(nn.Module):
         self.vervose = verbose
 
         self.model = nn.Sequential(
-            nn.Conv2d(1, 64, kernel_size=5, stride=2, padding=1),
+            nn.Conv2d(1, 64, kernel_size=4, stride=1, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(True),
+            nn.MaxPool2d(2),
 
-            nn.Conv2d(64, 128, kernel_size=5, stride=2, padding=1),
+            nn.Conv2d(64, 128, kernel_size=4, stride=1, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(True),
+            nn.MaxPool2d(2),
         )
 
         # res_block = []
@@ -222,7 +224,7 @@ class Trainer:
         return dataloader
 
     def train(self):
-        print("begin training ......")
+        print("begin training1 ......")
         clf = Classifier_CNN(feature_dim=self.feature_dim,
                              latent_dim=self.latent_dim,
                              input_size=self.input_size)
@@ -319,8 +321,8 @@ if __name__ == "__main__":
     feature_dim = 784
     latent_dim = 10
     input_size = (1, 28, 28)
-    betas = (0.5, 0.99)
-    decay = 2.5 * 1e-5
+    betas = (0.5, 0.9)
+    decay = 1.5 * 1e-5
     epochs = 40
 
     trainer = Trainer(batch_size=batch_size,
