@@ -3,3 +3,4 @@ log/
 model/
 .idea/
 predict.csv
+__pycache__/
