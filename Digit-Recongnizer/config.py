@@ -10,9 +10,18 @@
 """
 
 import os
+import torch
 
 Digit_DIR = os.path.dirname(os.path.abspath(__file__))
 
 Data_DIR = os.path.join(Digit_DIR, 'datasets')
 
 Model_DIR = os.path.join(Digit_DIR, 'model')
+
+Log_DIR = os.path.join(Digit_DIR, 'log')
+
+train_data_path = os.path.join(Data_DIR, 'train.csv')
+
+test_data_path = os.path.join(Data_DIR, 'test.csv')
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

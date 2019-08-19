@@ -11,7 +11,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torchvision.transforms as transforms
-from config import Data_DIR, Model_DIR, Digit_DIR
+from config import Model_DIR, device, Log_DIR, train_data_path, test_data_path
 from utils import csv2tensor, caculate_accuracy
 from datasets import DigitData
 from model import Classifier_CNN, SpacialTransformer
@@ -19,14 +19,7 @@ import matplotlib.pyplot as plt
 
 
 os.makedirs(Model_DIR, exist_ok=True)
-
-Log_DIR = os.path.join(Digit_DIR, 'log')
 os.makedirs(Log_DIR, exist_ok=True)
-
-train_data_path = os.path.join(Data_DIR, 'train.csv')
-test_data_path = os.path.join(Data_DIR, 'test.csv')
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class Trainer:

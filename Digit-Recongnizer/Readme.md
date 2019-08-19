@@ -1,6 +1,6 @@
 # Digit Recongnizer of datasets Mnist
 ---  
-### category:
+### catalogue:
 datasets/  
 log/  
 model/
