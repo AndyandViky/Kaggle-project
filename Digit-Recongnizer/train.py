@@ -95,7 +95,7 @@ class Trainer:
                 data, target = data.to(device), target.to(device)
 
                 # get extend data
-                transform_data = transform_net(data)
+                # transform_data = transform_net(data)
 
                 # from torchvision.utils import save_image
                 # save_image(data[:25], './test1.png', nrow=5, normalize=False)
@@ -112,11 +112,11 @@ class Trainer:
                 clf_ops.step()
 
                 # according transform data to update parameters
-                clf_ops.zero_grad()
-                t_logit = clf(transform_data)
-                t_loss = mls_loss(t_logit, target)
-                t_loss.backward()
-                clf_ops.step()
+                # clf_ops.zero_grad()
+                # t_logit = clf(transform_data)
+                # t_loss = mls_loss(t_logit, target)
+                # t_loss.backward()
+                # clf_ops.step()
 
                 tra_los.append(loss.data.cpu().numpy())
 
