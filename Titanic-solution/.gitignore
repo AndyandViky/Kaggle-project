@@ -1,0 +1,6 @@
+datasets/
+log/
+model/
+.idea/
+submission.csv
+__pycache__/
