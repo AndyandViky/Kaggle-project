@@ -7,19 +7,16 @@ import os
 
 import pandas as pd
 from PIL import Image
+import torch.nn.functional as F
 import torch
 import numpy as np
 import torch.nn as nn
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
+from config import Data_DIR, Model_DIR, Digit_DIR
 import matplotlib.pyplot as plt
 
 
-Digit_DIR = os.path.dirname(os.path.abspath(__file__))
-
-Data_DIR = os.path.join(Digit_DIR, 'datasets')
-
-Model_DIR = os.path.join(Digit_DIR, 'model')
 os.makedirs(Model_DIR, exist_ok=True)
 
 Log_DIR = os.path.join(Digit_DIR, 'log')
@@ -110,6 +107,50 @@ class DigitData(Dataset):
     def __len__(self):
 
         return len(self.image)
+
+
+class SpacialTransformer(nn.Module):
+
+    def __init__(self):
+        super(SpacialTransformer, self).__init__()
+
+        # Spatial transformer localization-network
+        self.localization = nn.Sequential(
+            nn.Conv2d(1, 8, kernel_size=7),
+            nn.MaxPool2d(2, stride=2),
+            nn.ReLU(True),
+
+            nn.Conv2d(8, 10, kernel_size=5),
+            nn.MaxPool2d(2, stride=2),
+            nn.ReLU(True),
+        )
+
+        # Regressor for the 3 * 2 affine matrix
+        self.fc_loc = nn.Sequential(
+            nn.Linear(10 * 3 * 3, 32),
+            nn.ReLU(True),
+            nn.Linear(32, 3 * 2),
+        )
+
+        # Initialize the weights/bias with identity transformation
+        self.fc_loc[2].weight.data.zero_()
+        self.fc_loc[2].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
+
+    # Spatial transformer network forward function
+    def stn(self, x):
+        xs = self.localization(x)
+        xs = xs.view(-1, 10 * 3 * 3)
+        theta = self.fc_loc(xs)
+        theta = theta.view(-1, 2, 3)
+
+        grid = F.affine_grid(theta, x.size())
+        x = F.grid_sample(x, grid)
+
+        return x
+
+    def forward(self, x):
+
+        return self.stn(x)
 
 
 class ResNet_Block(nn.Module):
@@ -228,12 +269,15 @@ class Trainer:
         clf = Classifier_CNN(feature_dim=self.feature_dim,
                              latent_dim=self.latent_dim,
                              input_size=self.input_size)
+        transform_net = SpacialTransformer()
+
         clf_ops = torch.optim.Adam(clf.parameters(), lr=self.lr, betas=self.betas, weight_decay=self.decay)
         # clf_ops = torch.optim.SGD(clf.parameters(), lr=0.01, momentum=0.9)
         mls_loss = nn.CrossEntropyLoss()
 
         # to device: cuda or cpu
         clf.to(device)
+        transform_net.to(device)
         mls_loss.to(device)
 
         dataloader = self.getdataloader(train_data_path, self.batch_size, train=True)
@@ -250,26 +294,40 @@ class Trainer:
 
                 data, target = data.to(device), target.to(device)
 
+                # get extend data
+                transform_data = transform_net(data)
+
                 # from torchvision.utils import save_image
-                # save_image(data[:25], './test.png', nrow=5, normalize=True)
+                # save_image(transform_data[:25], './test.png', nrow=5, normalize=True)
 
                 clf.train()
                 clf.zero_grad()
+
+                # according origin data to update parameters
                 clf_ops.zero_grad()
-
                 logit = clf(data)
-
                 loss = mls_loss(logit, target)
-
-                loss.backward(retain_graph=True)
+                loss.backward()
                 clf_ops.step()
 
-                tra_los.append(loss.data.cpu().numpy())
+                # according transform data to update parameters
+                clf_ops.zero_grad()
+                t_logit = clf(transform_data)
+                t_loss = mls_loss(t_logit, target)
+                t_loss.backward()
+                clf_ops.step()
 
-                # caculate accuracy
+                tra_los.append((loss.data.cpu().numpy() + t_loss.data.cpu().numpy()) / 2)
+
+                # caculate origin data accuracy
                 pred = torch.argmax(logit, dim=1)
                 acc = caculate_accuracy(pred.data.cpu(), target.data.cpu())
-                tra_acc.append(acc)
+
+                # caculate transform data accuracy
+                t_pred = torch.argmax(t_logit, dim=1)
+                t_acc = caculate_accuracy(t_pred.data.cpu(), target.data.cpu())
+
+                tra_acc.append((acc + t_acc) / 2)
 
             # test
             clf.eval()
