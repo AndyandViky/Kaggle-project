@@ -24,16 +24,18 @@ import torchvision
 from torchvision import transforms, datasets
 import matplotlib.pyplot as plt
 import numpy as np
-from config import Model_DIR
+from config import Model_DIR, Data_DIR
+from itertools import chain
+from datasets import DigitData
 
 plt.ion() # 开启交互模式
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+train_data_path = os.path.join(Data_DIR, 'train.csv')
 
 # loading data
 train_data = torch.utils.data.DataLoader(
-    datasets.MNIST(root='./datasets', train=True, transform=transforms.Compose([
+    DigitData(train_data_path, train=True, transform=transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
     ]), download=True),
     batch_size=64,
     shuffle=True,
@@ -41,9 +43,8 @@ train_data = torch.utils.data.DataLoader(
 )
 
 test_data = torch.utils.data.DataLoader(
-    datasets.MNIST(root='./datasets', train=False, transform=transforms.Compose([
+    DigitData(train_data_path, train=False, transform=transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
     ])),
     batch_size=64,
     shuffle=True,
@@ -76,7 +77,7 @@ class SpacialTransformer(nn.Module):
 
         # Initialize the weights/bias with identity transformation
         self.fc_loc[2].weight.data.zero_()
-        self.fc_loc[2].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], device=device, dtype=torch.float))
+        self.fc_loc[2].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
 
     # Spatial transformer network forward function
     def stn(self, x):
@@ -123,9 +124,10 @@ class Net(nn.Module):
 
 model = Net().to(device)
 transform = SpacialTransformer().to(device)
+transform.load_state_dict(torch.load(os.path.join(Model_DIR, 'pre_transform.pkl'), map_location='cpu'))
 
 # train
-optimizer = optim.SGD(model.parameters(), lr=0.01)
+optimizer = optim.SGD(chain(model.parameters(), transform.parameters()), lr=0.01)
 
 
 def train(epoch):
@@ -135,9 +137,9 @@ def train(epoch):
         data, target = data.to(device), target.to(device)
 
         optimizer.zero_grad()
-        model.zero_grad()()
+        model.zero_grad()
 
-        t_data = transforms(data)
+        t_data = transform(data)
         output = model(t_data)
         loss = F.nll_loss(output, target)
 
@@ -188,7 +190,7 @@ def visualize_stn():
         data = next(iter(test_data))[0].to(device)
 
         input_tensor = data.cpu()
-        transformed_input_tensor = model.stn(data).cpu()
+        transformed_input_tensor = transform.stn(data).cpu()
 
         in_grid = convert_image_np(
             torchvision.utils.make_grid(input_tensor))
@@ -205,14 +207,13 @@ def visualize_stn():
         axarr[1].set_title('Transformed Images')
 
 
-for epoch in range(1, 20 + 1):
+for epoch in range(1, 1):
     train(epoch)
     test()
-torch.save(transform.state_dict(), os.path.join(Model_DIR, "pre_transform.pkl"))
+# torch.save(transform.state_dict(), os.path.join(Model_DIR, "pre_transform.pkl"))
 
 # Visualize the STN transformation on some input batch
 visualize_stn()
 
 plt.ioff()
 plt.show()
-
