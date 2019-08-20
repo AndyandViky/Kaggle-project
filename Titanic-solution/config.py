@@ -30,3 +30,23 @@ parameter_grid = {
     'min_samples_leaf': [1, 3, 10],
     'bootstrap': [True, False],
 }
+
+# AdaBoost parameters
+ada_params = {
+    'n_estimators': [400, 500, 600],
+    'learning_rate': [0.5, 0.75, 0.9]
+}
+
+xgb_params = {
+    "n_estimators": [2000, 2100],
+    "max_depth": [4, 5, 6],
+    "min_child_weight": [2, 3, 10],
+    #gamma=1,
+    "gamma": [0.9, 1.0, 1.2],
+    "subsample": [0.6, 0.8, 1.0],
+    "colsample_bytree": [0.6, 0.8, 1.0],
+    "objective": ['binary:logistic'],
+    "nthread": [-1],
+    "scale_pos_weight": [1]
+}
+

@@ -4,7 +4,7 @@
 @contact: andy_viky@163.com
 @github: https://github.com/AndyandViky
 @csdn: https://blog.csdn.net/AndyViky
-@file: train.py.py
+@file: ramdom-forest-train.py.py
 @time: 2019/8/19 上午11:48
 @desc: train
 """
