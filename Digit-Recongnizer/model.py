@@ -80,25 +80,6 @@ class SpacialTransformer(nn.Module):
         return self.stn(x)
 
 
-class ResNet_Block(nn.Module):
-
-    def __init__(self, dim):
-        super(ResNet_Block, self).__init__()
-
-        self.model = nn.Sequential(
-            nn.Conv2d(dim, dim, kernel_size=3, padding=1, stride=1),
-            nn.BatchNorm2d(dim),
-            nn.ReLU(True),
-
-            nn.Conv2d(dim, dim, kernel_size=3, padding=1, stride=1),
-            nn.BatchNorm2d(dim)
-        )
-
-    def forward(self, x):
-
-        return x + self.model(x)
-
-
 class Classifier_CNN(nn.Module):
 
     def __init__(self, feature_dim=784, latent_dim=10, input_size=(1, 28, 28), verbose=False):
@@ -125,16 +106,6 @@ class Classifier_CNN(nn.Module):
             nn.MaxPool2d(2),
         )
 
-        # res_block = []
-        # for i in range(6):
-        #     res_block += [
-        #         ResNet_Block(128)
-        #     ]
-        # self.model = nn.Sequential(
-        #     self.model,
-        #     *res_block
-        # )
-
         self.model = nn.Sequential(
             self.model,
             Reshape(self.lshape),
@@ -144,7 +115,92 @@ class Classifier_CNN(nn.Module):
             nn.ReLU(True),
 
             nn.Linear(1024, self.latent_dim),
-            nn.Softmax(),
+            # nn.Softmax(),
+        )
+
+        init_weights(self)
+
+        if self.vervose:
+            print(self.model)
+
+    def forward(self, x):
+
+        return self.model(x)
+
+
+class ResNet_Block(nn.Module):
+
+    def __init__(self, input_dim, output_dim):
+        super(ResNet_Block, self).__init__()
+
+        self.model = nn.Sequential(
+            nn.Conv2d(input_dim, output_dim, kernel_size=3, padding=1, stride=1),
+            nn.BatchNorm2d(output_dim),
+            nn.ReLU(True),
+
+            nn.Conv2d(output_dim, output_dim, kernel_size=3, padding=1, stride=1),
+            nn.BatchNorm2d(output_dim),
+            nn.ReLU(True),
+        )
+
+    def forward(self, x):
+
+        return x + self.model(x)
+
+
+class RES_NET_Classifier(nn.Module):
+    def __init__(self, feature_dim=784, latent_dim=10, input_size=(1, 28, 28), verbose=False):
+        super(RES_NET_Classifier, self).__init__()
+
+        self.feature_dim = feature_dim
+        self.latent_dim = latent_dim
+        self.input_size = input_size
+
+        self.cshape = (128, 1, 1)
+        self.iels = int(np.prod(self.cshape))
+        self.lshape = (self.iels,)
+        self.vervose = verbose
+
+        self.model = nn.Sequential(
+            nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(True),
+            nn.MaxPool2d(2, 2),
+        )
+
+        res_block = []
+        for i in range(3):
+            res_block += [
+                ResNet_Block(64, 64)
+            ]
+
+        res_block += [
+            nn.Conv2d(64, 128, kernel_size=3, padding=1, stride=2),
+            nn.BatchNorm2d(128),
+            nn.ReLU(True),
+
+            nn.Conv2d(128, 128, kernel_size=3, padding=1, stride=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(True),
+        ]
+
+        for i in range(3):
+            res_block += [
+                ResNet_Block(128, 128)
+            ]
+
+        self.model = nn.Sequential(
+            self.model,
+            *res_block,
+            nn.AvgPool2d(2, 2),
+
+            Reshape(self.lshape),
+
+            nn.Linear(self.iels, 1024),
+            nn.BatchNorm1d(1024),
+            nn.ReLU(True),
+
+            nn.Linear(1024, self.latent_dim),
         )
 
         init_weights(self)

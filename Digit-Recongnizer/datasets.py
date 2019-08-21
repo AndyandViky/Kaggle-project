@@ -25,7 +25,7 @@ class DigitData(Dataset):
 
         train_length = int(len(self.datas) * 0.9)
         if self.train:
-            self.image, self.label = self.datas[:train_length, 1:], self.datas[:train_length, 0]
+            self.image, self.label = self.datas[:, 1:], self.datas[:, 0]
         else:
             self.image, self.label = self.datas[train_length:, 1:], self.datas[train_length:, 0]
 

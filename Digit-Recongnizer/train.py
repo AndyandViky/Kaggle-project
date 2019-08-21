@@ -4,6 +4,7 @@
 # os.chdir('/content/drive/My Drive/Digit-Recongnizer')
 
 import os
+import argparse
 
 import pandas as pd
 from PIL import Image
@@ -14,7 +15,7 @@ import torchvision.transforms as transforms
 from config import Model_DIR, device, Log_DIR, train_data_path, test_data_path
 from utils import csv2tensor, caculate_accuracy
 from datasets import DigitData
-from model import Classifier_CNN, SpacialTransformer
+from model import Classifier_CNN, RES_NET_Classifier
 import matplotlib.pyplot as plt
 
 
@@ -44,6 +45,12 @@ class Trainer:
         self.betas = betas
         self.decay = decay
         self.epochs = epochs
+        # self.clf = Classifier_CNN(feature_dim=self.feature_dim,
+        #                      latent_dim=self.latent_dim,
+        #                      input_size=self.input_size)
+        self.clf = RES_NET_Classifier(feature_dim=self.feature_dim,
+                                 latent_dim=self.latent_dim,
+                                 input_size=self.input_size)
 
     def getdataloader(self, path, batch_size, train=True):
 
@@ -58,19 +65,17 @@ class Trainer:
 
     def train(self):
         print("begin training1 ......")
-        clf = Classifier_CNN(feature_dim=self.feature_dim,
-                             latent_dim=self.latent_dim,
-                             input_size=self.input_size)
-        transform_net = SpacialTransformer()
-        transform_net.load_state_dict(torch.load(os.path.join(Model_DIR, 'pre_transform.pkl'), map_location='cpu'))
 
-        clf_ops = torch.optim.Adam(clf.parameters(), lr=self.lr, betas=self.betas, weight_decay=self.decay)
+        # transform_net = SpacialTransformer()
+        # transform_net.load_state_dict(torch.load(os.path.join(Model_DIR, 'pre_transform.pkl'), map_location='cpu'))
+
+        clf_ops = torch.optim.Adam(self.clf.parameters(), lr=self.lr, betas=self.betas, weight_decay=self.decay)
         # clf_ops = torch.optim.SGD(clf.parameters(), lr=0.01, momentum=0.9)
         mls_loss = nn.CrossEntropyLoss()
 
         # to device: cuda or cpu
-        clf.to(device)
-        transform_net.to(device)
+        self.clf.to(device)
+        # transform_net.to(device)
         mls_loss.to(device)
 
         dataloader = self.getdataloader(train_data_path, self.batch_size, train=True)
@@ -94,12 +99,12 @@ class Trainer:
                 # save_image(data[:25], './test1.png', nrow=5, normalize=False)
                 # save_image(transform_data[:25], './test.png', nrow=5, normalize=False)
 
-                clf.train()
-                clf.zero_grad()
+                self.clf.train()
+                self.clf.zero_grad()
 
                 # according origin data to update parameters
                 clf_ops.zero_grad()
-                logit = clf(data)
+                logit = self.clf(data)
                 loss = mls_loss(logit, target)
                 loss.backward()
                 clf_ops.step()
@@ -120,11 +125,11 @@ class Trainer:
                 tra_acc.append(acc)
 
             # test
-            clf.eval()
+            self.clf.eval()
             _data, _target = next(iter(testdataloader))
             _data, _target = _data.to(device), _target.to(device)
 
-            _logit = clf(_data)
+            _logit = self.clf(_data)
             _loss = mls_loss(_logit, _target)
             test_loss.append(_loss.data.cpu().numpy())
             _pred = torch.argmax(_logit, dim=1)
@@ -139,28 +144,43 @@ class Trainer:
 
             logger = open(os.path.join(Log_DIR, "log.txt"), 'a')
             logger.write(
-                "[Digit-Recongnizer] epoch: {}, train_loss: {}, train_acc: {}, test_loss: {}, test_acc: {}"
+                "[Digit-Recongnizer] epoch: {}, train_loss: {}, train_acc: {}, test_loss: {}, test_acc: {}\n"
                   .format(epoch, train_loss[epoch], train_acc[epoch], test_loss[epoch], test_acc[epoch])
             )
             logger.close()
 
+        # save model
+        torch.save(self.clf.state_dict(), os.path.join(Model_DIR, 'cls.pkl'))
+
+    def predict(self):
+        print("predict......")
         # predict
+
+        self.clf.load_state_dict(torch.load(os.path.join(Model_DIR, 'cls.pkl')))
+        self.clf.to(device)
         with torch.no_grad():
+            self.clf.eval()
             predict_data = csv2tensor(pd.read_csv(test_data_path))
             predict_data = predict_data.view(-1, 1, 28, 28)
             predict_data = torch.as_tensor(predict_data, dtype=torch.float32, device=device)
-            predict_result = torch.argmax(clf(predict_data), dim=1)
+            predict_result = torch.argmax(self.clf(predict_data), dim=1)
 
             predict_result = predict_result.data.cpu()
             image_id = [i for i in range(1, len(predict_result) + 1)]
             predict_result = pd.DataFrame({'ImageId': image_id, 'Label': predict_result})
             predict_result.to_csv('predict.csv', index=False)
 
-        # save model
-        torch.save(clf.state_dict(), os.path.join(Model_DIR, 'cls.pkl'))
-
 
 if __name__ == "__main__":
+
+    global args
+    parser = argparse.ArgumentParser(description="Classifier train")
+    parser.add_argument("-p", "--predict", dest="predict", default=False, help="predict")
+    args = parser.parse_args()
+
+    predict = args.predict
+
+    print(type(predict))
 
     # training var
     lr = 0.01
@@ -171,7 +191,7 @@ if __name__ == "__main__":
     input_size = (1, 28, 28)
     betas = (0.5, 0.9)
     decay = 1.5 * 1e-5
-    epochs = 40
+    epochs = 50
 
     trainer = Trainer(batch_size=batch_size,
                       test_batch_size=test_batch_size,
@@ -182,6 +202,10 @@ if __name__ == "__main__":
                       betas=betas,
                       decay=decay,
                       epochs=epochs)
-    trainer.train()
+
+    if predict:
+        trainer.predict()
+    else:
+        trainer.train()
 
 
