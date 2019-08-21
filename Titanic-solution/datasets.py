@@ -14,6 +14,12 @@ import pandas as pd
 
 def filterdata(train, test):
     """
+    Which features are categorical?
+    Which features are numerical?
+    Which features are mixed data types?
+    Which features may contain errors or typos?
+    Which features contain blank, null or empty values?
+
     filter origin data:
         1. replacing missing values
         2. change some data encoding in dummy variable
@@ -21,6 +27,20 @@ def filterdata(train, test):
     :param train:
     :param test:
     :return: data, target, PassengerId
+    """
+
+    # first: get data info
+    # train.info()
+    # test.info()
+
+    # second: get data describe which contain count,mean,std,min,max and so on.
+    # train.describe()
+    # test.describe()
+
+    # third: get every feature probability in 'Survived'
+    """
+    train[['Pclass', 'Survived']].groupby(['Pclass'], as_index=False).mean().\
+        sort_values(by='Survived',ascending=False)
     """
 
     PassengerId = test.PassengerId.values

@@ -196,11 +196,11 @@ class RES_NET_Classifier(nn.Module):
 
             Reshape(self.lshape),
 
-            nn.Linear(self.iels, 1024),
-            nn.BatchNorm1d(1024),
-            nn.ReLU(True),
+            # nn.Linear(self.iels, 1024),
+            # nn.BatchNorm1d(1024),
+            # nn.ReLU(True),
 
-            nn.Linear(1024, self.latent_dim),
+            nn.Linear(self.iels, self.latent_dim),
         )
 
         init_weights(self)
